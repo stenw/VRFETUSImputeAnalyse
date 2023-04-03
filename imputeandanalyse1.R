@@ -285,7 +285,7 @@ mids_long <- as.mids(imputed_d_long)
 
 # transform wide to long
 
-#CP 2-4: hopelijk zijn dit de correcte formuleringen voor berekeningen in RStudio.
+#CP 2-4: Sten, zijn dit de correcte formuleringen voor berekeningen in RStudio?
 #Calculate new Z-scores SF36:
 SF36_pf_z0 <- (SF36_phys_fun - 80.4) / 24.2
 SF36_rp_z0 <- (SF36_lim_phys - 73.8) / 38.5
@@ -397,3 +397,22 @@ gls0135("VAS_Therm_th1")
 # NB Assumes equal variance!!
 costs <- with(mids_wide, lm(allcosts~Allocation))
 summary(pool(costs),  conf.int=TRUE)
+
+#CP 2-4-23: Sten wil je aub helpen: hoe kan ik de volgende variabelen bij elkaar optellen, sum / c()? ik snap het niet. Let op: er kunnen lege/missing waarden bij zitten.
+#Som van kosten:
+MCQ_totaal <- (MCQ15_med_total, MCQ01a_EUR,MCQ_1elijn_EUR,MCQ_zorgthuis_EUR,MCQ_spoedzorg_EUR, MCQ19a_SQ001_EUR,MCQ_2elijnconsulten_EUR, MCQ28_EUR,MCQ_Opnames_overig,MCQ35_SQ001_EUR)
+MCQ_tot_excl_mantel_vlkgyn_opname <- (MCQ15_med_total, MCQ_1elijn_EUR,MCQ_spoedzorg_EUR,MCQ_2elijnconsulten_EUR)
+
+#CP 2-4: tenslotte optelsom van de meest betrouwbare variabelen uit MCQ samen met follow-up uit dossieronderzoek:
+Costs_total_incl_child <- (FU_US_exams,FU_consult,FU_Radiology,FU_Admitted,FU_Child,FU_part_mod_EUR,MCQ15_med_total, MCQ_1elijn_EUR, MCQ_spoedzorg_EUR,MCQ_2elijnconsulten_EUR)
+Costs_total_mother <- (FU_US_exams,FU_consult,FU_Radiology,FU_Admitted,FU_part_mod_EUR,MCQ15_med_total, MCQ_1elijn_EUR, MCQ_spoedzorg_EUR,MCQ_2elijnconsulten_EUR)
+
+#CP 2-4-2023 to do:
+    #1. MICE imputation naar 40-50 imputatierondes. 
+    #2. Ongepaarde T-test kosten: 
+      #MCQ01a_EUR; MCQ19a_SQ001_EUR;
+      #MCQ_totaal; MCQ_tot_excl_mantel_vlkgyn_opname;
+      #FU_consult; FU_US_exams;
+      #FU_Total; FU_Total_mother;
+      #Costs_total_incl_child; Costs_total_mother
+    #3. Sensitiviteitsanalyses.
