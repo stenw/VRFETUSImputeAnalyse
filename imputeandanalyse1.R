@@ -7,7 +7,10 @@ library(tidyr)
 d <- read.spss('../data/VRFETUS_Dataset_23-03-23_anom.sav',
                to.data.frame = TRUE)
 # NB: There are warnings that should be checked!!
+# CP 2-4: checked. Only long string variables cannot be changed, and will continue to give warnings.
 
+
+# CP 2-4: 'STOP' = STOP var, 1 = stop, 6 = continued participation.
 d1 <-
 d %>% mutate(heeftT1= !is.na(HADS_scoreffDepressie) &
                V_Round=='T=1 (after 3D VR or around 13 wks)',
@@ -41,10 +44,12 @@ data_to_impute <- d %>%
          rtMCQ_spoedzorg_EUR=sqrt(MCQ_spoedzorg_EUR),
          rtMCQ_2elijnconsulten_EUR=sqrt(MCQ_2elijnconsulten_EUR),
          rtMCQ19a_SQ001_EUR=sqrt(MCQ19a_SQ001_EUR),
+         rtMCQ28_EUR=sqrt(MCQ28_EUR),
          rtMCQ_Opnames_overig=sqrt(MCQ_Opnames_overig)) %>%
   mutate(Q_Outcome_recode=droplevels(Q_Outcome_recode)) %>%
   select(VRFETUSnr,
          V_Round,
+         organizationid,
          Etn_west,  #1m
          Preg_Drugs,
          Preg_Depr_dicho,
@@ -54,8 +59,7 @@ data_to_impute <- d %>%
          Q_Del_mode,
          Q_del_GA_days,
          Q_Birthweight,
-         SF36_pain, # 0,1 ,3,5
-         SF36_rec_21,
+         SF36_pain, # 0,1,3,5
          SF36_healtran,
          SF36_phys_fun,
          SF36_lim_phys,
@@ -76,6 +80,7 @@ data_to_impute <- d %>%
          rtMCQ_spoedzorg_EUR,
          rtMCQ_2elijnconsulten_EUR,
          rtMCQ19a_SQ001_EUR,
+         rtMCQ28_EUR,
          rtMCQ_Opnames_overig,
          FU_US_exams, # 0
          FU_consult,
@@ -86,6 +91,7 @@ data_to_impute <- d %>%
          FU_Child,
          Allocation, # 0
          STOP,
+         Age,
          Preg_nulli,
          Preg_Sig_dicho,
          Preg_FzPreCon,
@@ -96,7 +102,7 @@ data_to_impute <- d %>%
          Marker_rec,
          Q_del_GA_before168,
          Q_del_GA_168_259) %>%
-  pivot_wider(id_cols = c(VRFETUSnr, Allocation, STOP, Preg_nulli,
+  pivot_wider(id_cols = c(VRFETUSnr, organizationid, Allocation, STOP, Preg_nulli, Age,
                           Preg_Sig_dicho,
                           Preg_FzPreCon,
                           Preg_ETScat_dicho,
@@ -108,7 +114,6 @@ data_to_impute <- d %>%
                           Q_del_GA_168_259),
               names_from =V_Round,
               values_from=c(SF36_pain,
-                            SF36_rec_21,
                             SF36_healtran,
                             SF36_phys_fun,
                             SF36_lim_phys,
@@ -128,9 +133,10 @@ data_to_impute <- d %>%
                             rtMCQ_spoedzorg_EUR,
                             rtMCQ_2elijnconsulten_EUR,
                             rtMCQ19a_SQ001_EUR,
+                            rtMCQ28_EUR,
                             rtMCQ_Opnames_overig)) %>%
   select(!c(VRFETUSnr,
-            SF36_pain_T4, SF36_rec_21_T4, SF36_healtran_T4, SF36_phys_fun_T4,
+            SF36_pain_T4, SF36_healtran_T4, SF36_phys_fun_T4,
             SF36_lim_phys_T4, SF36_lim_emot_T4, SF36_energy_T4,
             SF36_emot_wb_T4, SF36_soc_fun_T4, SF36_gen_heal_T4,
             HADS_scoreffAngst_T4, HADS_scoreffDepressie_T4,
@@ -139,30 +145,32 @@ data_to_impute <- d %>%
             rtMCQ15_med_total_T0, rtMCQ_1elijn_EUR_T0, rtMCQ01a_EUR_T0,
             rtMCQ_zorgthuis_EUR_T0, rtMCQ_spoedzorg_EUR_T0,
             rtMCQ_2elijnconsulten_EUR_T0, rtMCQ19a_SQ001_EUR_T0,
-            rtMCQ_Opnames_overig_T0,
+            rtMCQ_Opnames_overig_T0, rtMCQ28_EUR_T0,
             rtMCQ15_med_total_T1, rtMCQ_1elijn_EUR_T1,
             rtMCQ01a_EUR_T1, rtMCQ_zorgthuis_EUR_T1,
             rtMCQ_spoedzorg_EUR_T1, rtMCQ_2elijnconsulten_EUR_T1,
-            rtMCQ19a_SQ001_EUR_T1, rtMCQ_Opnames_overig_T1,
+            rtMCQ19a_SQ001_EUR_T1, rtMCQ28_EUR_t1,
             rtMCQ_Opnames_overig_T1))
 
 
 # rtMCQ_Opnames_overig_T4 is always zero so we also remove it
-
+  # CP2-4: rtMCQ_Opnames_overig_T5 (note: T5) is not always zero, but is removed; adjusted this in the syntax.
+# CP 2-4-23: These MCQ data may be used wide, because they have to be summed (T3+T4+T5) as a total costs variable for the pregnancy. i.e., not measured as repeated measures.
 impimp <- mice(data_to_impute,m = 6, maxit = 6)
 cnv <- convergence(imp)
 imputed_d_wide <- complete(imp, action='long', include=TRUE) %>% 
   mutate(allcosts=rtMCQ15_med_total_T3^2+ rtMCQ_1elijn_EUR_T3^2, rtMCQ01a_EUR_T3^2+
          rtMCQ_zorgthuis_EUR_T3^2+ rtMCQ_spoedzorg_EUR_T3^2+
          rtMCQ_2elijnconsulten_EUR_T3^2+ rtMCQ19a_SQ001_EUR_T3^2+
-         rtMCQ_Opnames_overig_T3^2 +
+         rtMCQ_Opnames_overig_T3^2 + rtMCQ28_EUR_T3^2,
            rtMCQ15_med_total_T4^2+ rtMCQ_1elijn_EUR_T4^2, rtMCQ01a_EUR_T4^2+
            rtMCQ_zorgthuis_EUR_T4^2+ rtMCQ_spoedzorg_EUR_T4^2+
          rtMCQ_2elijnconsulten_EUR_T4^2+ rtMCQ19a_SQ001_EUR_T4^2+
-         +
+         rtMCQ28_EUR_T4^2 +
            rtMCQ15_med_total_T5^2+ rtMCQ_1elijn_EUR_T5^2, rtMCQ01a_EUR_T5^2+
            rtMCQ_zorgthuis_EUR_T5^2+ rtMCQ_spoedzorg_EUR_T5^2+
-         rtMCQ_2elijnconsulten_EUR_T5^2+ rtMCQ19a_SQ001_EUR_T5^2)
+         rtMCQ_2elijnconsulten_EUR_T5^2+ rtMCQ19a_SQ001_EUR_T5^2 +
+         rtMCQ28_EUR_T5^2+ rtMCQ_Opnames_overig_T5^2)
 
 saveRDS(imputed_d_wide, file = 'imputed_d_wide.Rds')
 mids_wide <- as.mids(imputed_d_wide)
@@ -177,7 +185,7 @@ setNA <- function(data, vars){
 }
 
 imputed_d_wide <- setNA(imputed_d_wide,
-                        vars = c("SF36_pain_T4", "SF36_rec_21_T4",
+                        vars = c("SF36_pain_T4", 
                           "SF36_healtran_T4", "SF36_phys_fun_T4",
                           "SF36_lim_phys_T4", "SF36_lim_emot_T4", "SF36_energy_T4",
                           "SF36_emot_wb_T4", "SF36_soc_fun_T4", "SF36_gen_heal_T4",
@@ -187,15 +195,14 @@ imputed_d_wide <- setNA(imputed_d_wide,
                           "rtMCQ15_med_total_T0", "rtMCQ_1elijn_EUR_T0", "rtMCQ01a_EUR_T0",
                           "rtMCQ_zorgthuis_EUR_T0", "rtMCQ_spoedzorg_EUR_T0",
                           "rtMCQ_2elijnconsulten_EUR_T0", "rtMCQ19a_SQ001_EUR_T0",
-                          "rtMCQ_Opnames_overig_T0",
+                          "rtMCQ_Opnames_overig_T0", "rtMCQ28_EUR_T0"
                           "rtMCQ15_med_total_T1", "rtMCQ_1elijn_EUR_T1",
                           "rtMCQ01a_EUR_T1", "rtMCQ_zorgthuis_EUR_T1",
                           "rtMCQ_spoedzorg_EUR_T1", "rtMCQ_2elijnconsulten_EUR_T1",
                           "rtMCQ19a_SQ001_EUR_T1", "rtMCQ_Opnames_overig_T1",
-                          "rtMCQ_Opnames_overig_T1"))
+                          "rtMCQ_Opnames_overig_T1", "rtMCQ28_EUR_T1"))
 
 tvcolnames <- c("SF36_pain",
-                "SF36_rec_21",
                 "SF36_healtran",
                 "SF36_phys_fun",
                 "SF36_lim_phys",
@@ -215,22 +222,26 @@ tvcolnames <- c("SF36_pain",
                 "rtMCQ_spoedzorg_EUR",
                 "rtMCQ_2elijnconsulten_EUR",
                 "rtMCQ19a_SQ001_EUR",
+                "rtMCQ28_EUR"
                 "rtMCQ_Opnames_overig")
 
 tvcolnames <- paste0(rep(tvcolnames, each=5),
                      c('_T0', '_T1', '_T3', '_T4', '_T5'))
 
-
+#CP 2-4: rtMCQ_med_total en rt_1elijn_EUR staan niet in de onderstaande syntax, is dat opzettelijk?
 
 imputed_d_long <- pivot_longer(imputed_d_wide,
              cols = tvcolnames,
              names_to = c(".value", "V_Round"),
              names_pattern = "(.*)_T(.)") %>%
-  mutate(MCQ01a_EUR=rtMCQ01a_EUR^2,
+  mutate(MCQ15_med_total=rtMCQ15_med_total^2,
+         MCQ_1elijn_EUR=rtMCQ_1elijn_EUR^2,
+         MCQ01a_EUR=rtMCQ01a_EUR^2,
          MCQ_zorgthuis_EUR=rtMCQ_zorgthuis_EUR^2,
          MCQ_spoedzorg_EUR=rtMCQ_spoedzorg_EUR^2,
          MCQ_2elijnconsulten_EUR=rtMCQ_2elijnconsulten_EUR^2,
          MCQ19a_SQ001_EUR=rtMCQ19a_SQ001_EUR^2,
+         MCQ28_EUR=rtMCQ28_EUR^2,
          MCQ_Opnames_overig=rtMCQ_Opnames_overig^2) %>% 
   mutate(Arm=Allocation,
          BL=ifelse(V_Round=='0',1,0),
@@ -274,6 +285,33 @@ mids_long <- as.mids(imputed_d_long)
 
 # transform wide to long
 
+#CP 2-4: hopelijk zijn dit de correcte formuleringen voor berekeningen in RStudio.
+#Calculate new Z-scores SF36:
+SF36_pf_z0 <- (SF36_phys_fun - 80.4) / 24.2
+SF36_rp_z0 <- (SF36_lim_phys - 73.8) / 38.5
+SF36_bp_z0 <- (SF36_pain - 71.9) / 23.8
+SF36_gh_z0 <- (SF36_gen_heal - 69.9) / 20.6
+SF36_vt_z0 <- (SF36_energy   - 64.3) / 19.7
+SF36_sf_z0 <- (SF36_soc_fun  - 82.0) / 23.5
+SF36_re_z0 <- (SF36_lim_emot - 78.5) / 35.7
+SF36_mh_z0 <- (SF36_emot_wb  - 73.7) / 18.2 
+
+SF36_pcs <- SF36_pf_z0* .42402 + SF36_rp_z0* .35119 + SF36_bp_z0* .31754 + 
+SF36_gh_z0* .24954 + SF36_vt_z0*.02877 + SF36_sf_z0*-.00753 + 
+SF36_re_z0*-.19206 + SF36_mh_z0*-.22069 
+SF36_mcs <- SF36_pf_z0*-.22999 + SF36_rp_z0*-.12329 + SF36_bp_z0*-.09731 + 
+SF36_gh_z0*-.01571 + SF36_vt_z0*.23534 + SF36_sf_z0* .26876 + 
+F36_re_z0* .43407 + SF36_mh_z0* .48581 
+
+SF36_t_pcs <- 50 + SF36_pcs * 10 
+SF36_t_mcs <- 50 + SF36_mcs * 10 
+
+#Calculate QALY based on: https://doi.org/10.1111/j.1524-4733.2008.00352.x
+#Scores are expressed 0 - 1.0.
+SF36_EQ5D <- 0.03256 + 0.0037* SF36_phys_fun + 0.0011* SF36_soc_fun 
+  - 0.00024 * SF36_lim_phys + 0.00024 * SF36_lim_emot 
+  + 0.00256 * SF36_emot_wb - 0.00063 * SF36_energy 
+  +0.00286 * SF36_pain + 0.00052 * SF36_gen_heal
 
 library(lme4)
 library(geepack)
@@ -281,11 +319,11 @@ library(broom.mixed)
 # Health related quality of life effects (terms of QALY’s)  
 
 gee_pain <- with(mids_long, geeglm(SF36_pain ~ Round1+Round3 + Round5 +
-                                     Intervention1+Intervention3 + Intervention5,
+                                     Intervention1+Intervention3 + Intervention5+organizationid,
                                                 family = "gaussian", id = .id2,
                                    corstr = "exchangeable"))
 
-gee_pain0 <- with(mids_long, geeglm(SF36_pain  ~ Round1+Round3 + Round5,
+gee_pain0 <- with(mids_long, geeglm(SF36_pain  ~ Round1+Round3 + Round5+organizationid,
                                                    family = "gaussian", id = .id2,
                                                    corstr = "exchangeable"))
 
@@ -296,12 +334,12 @@ summary(pooled, conf.int=TRUE)
 D1(gee_pain, gee_pain0)
 
 
-lmer_pain <- with(mids_long, lmer(SF36_pain ~ Round1+Round3 + Round5 +
+lmer_pain <- with(mids_long, lmer(SF36_pain ~ Round1+Round3 + Round5 +organizationid+
                                      Intervention1+Intervention3 + 
                                    Intervention5+(1|.id2), REML=FALSE))
 
 lmer_pain0 <- with(mids_long, lmer(SF36_pain ~ Round1+Round3 + Round5 +
-                                    (1|.id2), REML=FALSE))
+                                    (1|.id2)+organizationid, REML=FALSE))
 
 pooled <- pool(lmer_pain)
 summary(pooled, conf.int=TRUE)
@@ -311,20 +349,21 @@ D1(lmer_pain, lmer_pain0)
 
 
 gls_pain <- with(mids_long, gls(SF36_pain ~ Round1+Round3 + Round5 +
-                                  Intervention1+Intervention3 + Intervention5,
+                                  Intervention1+Intervention3 + Intervention5+organizationid,
                                 na.action=na.omit,
                                 correlation = corSymm(form = ~ obstime0135 | .id2)))
-gls_pain0 <- with(mids_long, gls(SF36_pain ~ Round1+Round3 + Round5, na.action=na.omit,
+gls_pain0 <- with(mids_long, gls(SF36_pain ~ Round1+Round3 + Round5+organizationid, na.action=na.omit,
                                  correlation = corSymm(form = ~ obstime0135 | .id2)))
 
 pooled <- pool(gls_pain)
 summary(pooled, conf.int=TRUE)
 
-
+#CP 2-4: Stratificatiefactor 'organizationid' toegevoegd in de syntax. 
+#CP 2-4: Extra analyses voor samenvattende scores en EQ5D toegevoegd.
 D1(gls_pain, gls_pain0)
 gls0135 <- function(Y){
-  frm0 <- as.formula(paste(Y, '~ Round1+Round3 + Round5'))
-  frm1 <- as.formula(paste(Y, '~ Round1+Round3 + Round5+Intervention1+Intervention3 + Intervention5'))
+  frm0 <- as.formula(paste(Y, '~ Round1+Round3 + Round5+organizationid'))
+  frm1 <- as.formula(paste(Y, '~ Round1+Round3 + Round5+Intervention1+Intervention3 + Intervention5+organizationid'))
   gls_pain <- with(mids_long, gls(frm1,
                                   na.action=na.omit,
                                   correlation = corSymm(form = ~ obstime0135 | .id2)))
@@ -337,7 +376,6 @@ gls0135 <- function(Y){
   print(D1(gls_pain, gls_pain0))
 }
 gls0135('SF36_pain')
-gls0135("SF36_rec_21")
 gls0135("SF36_healtran")
 gls0135("SF36_phys_fun")
 gls0135("SF36_lim_phys")
@@ -346,6 +384,9 @@ gls0135("SF36_energy")
 gls0135("SF36_emot_wb")
 gls0135("SF36_soc_fun")
 gls0135("SF36_gen_heal")
+gls0135("SF36_t_pcs")
+gls0135("SF36_t_mcs")
+gls0135("SF36_EQ5D")
 
 gls0135("HADS_scoreffAngst")
 gls0135("HADS_scoreffDepressie_T4")
